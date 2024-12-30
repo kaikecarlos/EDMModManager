@@ -44,8 +44,8 @@ export function LayoutSideBar() {
                       <Package className="size-4" />
                     </div>
                     <div className="flex flex-col gap-0.5 leading-none">
-                      <span className="font-semibold">Mod Manager</span>
-                      <span className="text-xs text-muted-foreground">v1.0.0</span>
+                      <span className="font-semibold">EDM Mod Manager</span>
+                      <span className="text-xs text-muted-foreground">Alpha v1.0.0</span>
                     </div>
                   </a>
                 </SidebarMenuButton>
@@ -64,7 +64,7 @@ export function LayoutSideBar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <a href="#">
+                  <a href="/downloads">
                     <Download className="mr-2 size-4" />
                     Downloads
                   </a>
@@ -72,7 +72,7 @@ export function LayoutSideBar() {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
-                  <a href="mods">
+                  <a href="/mods">
                     <Package className="mr-2 size-4" />
                     Mods Instalados
                   </a>

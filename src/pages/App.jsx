@@ -13,26 +13,26 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { useEffect, useState } from 'preact/hooks';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '../components/ui/alert-dialog';
-import { Folder } from 'lucide-react';
+import { AlertCircle, Folder } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '../components/ui/alert';
 
 import { open } from '@tauri-apps/plugin-dialog';
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from '@tauri-apps/api/event';
 import { Progress } from '../components/ui/progress';
-
-
-const featuredMods = [
-  { id: 1, title: "Lupi Melão", image: "https://placehold.co/400x600/FFFFFF/000000/svg" },
-  { id: 2, title: "Super Ordem Kart", image: "https://placehold.co/400x600/FFFFFF/000000/svg" },
-  { id: 3, title: "SDOL", image: "https://placehold.co/400x600/FFFFFF/000000/svg" },
-  { id: 4, title: "Kian Jogavel", image: "https://placehold.co/400x600/FFFFFF/000000/svg" },
-]
+import { useNavigate } from 'react-router';
+import axios from 'axios';
 
 
 function App() {
+  const [mods, setMods] = useState([])
+  const [featuredMods, setFeaturedMods] = useState([])
   const [isGamePath, setIsGamePath] = useState(false)
-  const [isBepinex, setIsBepinex] = useState(false)
+  const [isBepinex, setIsBepinex] = useState(true)
   const [bepinexInstallDialog, setBepinexInstallDialog] = useState(false)
+  const [showAlert, setShowAlert] = useState(false)
+
+  let navigate = useNavigate()
 
   useEffect(() => {
     if (localStorage.getItem('@gamepath') !== null) {
@@ -46,9 +46,44 @@ function App() {
     verifyBepinex()
   }, [isBepinex])
 
+  useEffect(() => {
+    getModsDatabase()
+    const unlistenCloseRequested = listen("tauri://close-requested", () => {
+      localStorage.getItem('@modsDatabase') && localStorage.removeItem('@modsDatabase')
+    });
+    return () => {
+      unlistenCloseRequested.then((unlisten) => unlisten());
+    }
+  }, [])
+
   const handleGamePath = (value) => {
     localStorage.setItem('@gamepath', value)
     setIsGamePath(true)
+  }
+
+  const getModsDatabase = async () => {
+    const cachedMods = localStorage.getItem('@modsDatabase');
+    if (cachedMods) {
+      const modsData = JSON.parse(cachedMods);
+      setMods(modsData.releases);
+      setFeaturedMods(getRandomFeaturedMods(modsData.releases));
+    } else {
+      setShowAlert(true);
+      const mods = await axios.get('https://raw.githubusercontent.com/kaikecarlos/edm-mod-db/refs/heads/source/database.json');
+      localStorage.setItem('@modsDatabase', JSON.stringify(mods.data));
+      setMods(mods.data.releases);
+      setFeaturedMods(getRandomFeaturedMods(mods.data.releases));
+    }
+  }
+  
+  
+  const getRandomFeaturedMods = (mods) => {
+    const featured = [];
+    for (let i = 0; i < 3; i++) {
+      const random = Math.floor(Math.random() * mods.length);
+      featured.push(mods[random]);
+    }
+    return featured;
   }
 
   const verifyBepinex = async () => {
@@ -71,6 +106,15 @@ function App() {
 
   return (
     <div className="w-full mb-12">
+      {showAlert && (
+        <Alert variant="destructive">
+          <AlertCircle className='h-4 w-4' />
+          <AlertTitle>Erro</AlertTitle>
+          <AlertDescription>
+            Falha ao carregar o banco de dados de mods. Por favor, tente novamente.
+          </AlertDescription>
+        </Alert>
+      )}
       {isBepinex ? (<></>) : (
         <div className="bg-red-600 z-[1000] w-full flex items-center justify-between fixed top-0 left-0 p-4">
           <h1>O BepInEx não está devidamente instalado</h1>
@@ -88,17 +132,17 @@ function App() {
         <Carousel className="w-full">
           <CarouselContent>
             {featuredMods.map((mod) => (
-              <CarouselItem key={mod.id}>
-                <Card className="border-none">
+              <CarouselItem key={mod.slug}>
+                <Card className="border-none" onClick={() => navigate(`/mod/${mod.slug}`)}>
                   <CardContent className="flex items-center justify-center p-0">
                     <div className="relative w-full h-[300px] sm:h-[400px] md:h-[500px] lg:h-[400px] xl:h-[500px] rounded-xl overflow-hidden">
                       <img
-                        src={mod.image}
-                        alt={mod.title}
+                        src={mod.image ? mod.image : `https://placehold.co/400x600/FFFFFF/000000/svg?text=${mod.slug}` }
+                        alt={mod.name}
                         className="w-full h-full object-cover"
                       />
                       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black to-transparent p-4">
-                        <h3 className="text-2xl font-bold text-white">{mod.title}</h3>
+                        <h3 className="text-2xl font-bold text-white">{mod.name}</h3>
                       </div>
                     </div>
                   </CardContent>
@@ -108,7 +152,7 @@ function App() {
           </CarouselContent>
         </Carousel>
       </div>
-      <OtherMods />
+      <OtherMods mods={mods} />
     </div>
   );
 }
@@ -197,7 +241,6 @@ const InstallBepinexDialog = ({ callback }) => {
       setProgress(100);
     });
 
-    // Cleanup listeners on component unmount
     return () => {
       unlistenDownloadStarted.then((unlisten) => unlisten());
       unlistenDownloadProgress.then((unlisten) => unlisten());
